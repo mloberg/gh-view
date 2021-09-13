@@ -1,0 +1,41 @@
+#!/bin/bash
+set -e
+
+list_prs() {
+  # shellcheck disable=SC2016
+  gh api graphql --cache=5m -F owner='{owner}' -F repo='{repo}' -f query='
+    query ($owner: String!, $repo: String!) {
+      repository(owner: $owner, name: $repo) {
+        pullRequests(last: 100) {
+          nodes {
+            number
+            headRefName
+          }
+        }
+      }
+    }
+  ' --template '
+    {{- range .data.repository.pullRequests.nodes -}}
+      {{- .number | printf "%.0f\t" -}}
+      {{- .headRefName | printf "%s\n" -}}
+    {{- end -}}
+  '
+}
+
+find_pr() {
+  find="$1"
+  prs="$(list_prs 2>/dev/null || true)"
+  while IFS=$'\t' read -r pr branch; do
+    if [ "$branch" == "$find" ]; then
+      echo "$pr"
+      break
+    fi
+  done <<<"$prs"
+}
+
+open="$1"
+branch=$(git rev-parse --abbrev-ref HEAD)
+
+[ -z "$open" ] && open=$(find_pr "$branch")
+
+exec gh browse --branch "$branch" "$open"
