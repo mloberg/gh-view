@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -ex
 
 list_prs() {
   # shellcheck disable=SC2016
@@ -35,7 +35,12 @@ find_pr() {
 
 open="$1"
 branch=$(git rev-parse --abbrev-ref HEAD)
+pr=$(find_pr "$branch")
 
-[ -z "$open" ] && open=$(find_pr "$branch")
-
-exec gh browse --branch "$branch" "$open"
+# if file given or not a PR, open the file view
+# otherwise view the PR page
+if [ -n "$open" ] || [ -z "$pr" ]; then
+    gh browse --branch "$branch" "$open"
+else
+    gh browse "$(find_pr "$branch")"
+fi
